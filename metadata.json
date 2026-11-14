@@ -1,0 +1,6 @@
+{
+  "name": "Landing Page (Sections Viewer)",
+  "description": "Mobile-only interactive landing page viewer preserving original section imagery with clickable button controls and quick order flow.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
