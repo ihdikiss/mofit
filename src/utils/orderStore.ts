@@ -1,6 +1,7 @@
 import {
   OrderFormInput,
   PACK_TITLE,
+  SITE_BASE_URL,
   buildWhatsAppOrderPayload,
 } from './landingSections';
 
@@ -12,7 +13,8 @@ import {
 export const ADMIN_DEMO_EMAIL = 'admin@dakhlafit.ma';
 export const ADMIN_DEMO_PASSWORD = 'DakhlaFit@2026';
 
-export const ORDERS_STORAGE_KEY = 'dakhla_fit_orders_v1';
+export const ORDERS_STORAGE_KEY = 'orders';
+export const LEGACY_ORDERS_STORAGE_KEY = 'dakhla_fit_orders_v1';
 export const ADMIN_SESSION_STORAGE_KEY = 'dakhla_fit_admin_session_v1';
 
 export type OrderStatus = 'pending' | 'confirmed' | 'canceled';
@@ -28,6 +30,7 @@ export interface OrderRecord {
   status: OrderStatus;
   createdAt: string;
   whatsappUrl: string;
+  sourceUrl?: string;
 }
 
 export interface OrderAnalytics {
@@ -64,7 +67,9 @@ export function loadOrders(
 ): OrderRecord[] {
   if (!storage) return [];
   try {
-    const raw = storage.getItem(ORDERS_STORAGE_KEY);
+    const raw =
+      storage.getItem(ORDERS_STORAGE_KEY) ||
+      storage.getItem(LEGACY_ORDERS_STORAGE_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
@@ -106,6 +111,7 @@ export function createAndSaveOrder(
     status: 'pending',
     createdAt: nowDate.toISOString(),
     whatsappUrl: payload.url,
+    sourceUrl: SITE_BASE_URL,
   };
 
   const existing = loadOrders(storage);

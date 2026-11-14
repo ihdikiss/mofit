@@ -79,6 +79,7 @@ test('buildWhatsAppOrderPayload constructs dynamic encoded wa.me URL with pack a
   assert.ok(payload.message.includes('مراكش'));
   assert.ok(payload.message.includes('878'));
   assert.ok(payload.message.includes('DAKHLA FIT'));
+  assert.ok(payload.message.includes('https://morabitfit.vercel.app/'));
 });
 
 test('evergreen countdown persists across visits and resets only after 24h expiry', () => {

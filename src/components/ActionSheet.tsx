@@ -1,16 +1,14 @@
 import React, {useState, useEffect} from 'react';
-import {X, CheckCircle2, Minus, Plus, ShieldCheck, ExternalLink} from 'lucide-react';
+import {X, CheckCircle2, Minus, Plus, ShieldCheck} from 'lucide-react';
 import {
   LandingSection,
   OrderFormInput,
   OrderValidationResult,
-  WhatsAppPayload,
   PACK_TITLE,
   calculatePriceSummary,
   validateOrderForm,
-  buildWhatsAppOrderPayload,
 } from '../utils/landingSections';
-import {createAndSaveOrder} from '../utils/orderStore';
+import {OrderRecord, createAndSaveOrder} from '../utils/orderStore';
 
 interface ActionSheetProps {
   section: LandingSection | null;
@@ -34,14 +32,14 @@ export function ActionSheet({
     valid: true,
     errors: {},
   });
-  const [confirmedPayload, setConfirmedPayload] = useState<
-    (WhatsAppPayload & {fullName: string; city: string; quantity: number}) | null
-  >(null);
+  const [submittedOrder, setSubmittedOrder] = useState<OrderRecord | null>(
+    null,
+  );
 
   useEffect(() => {
     if (section) {
       setShowOrderForm(section.isPrimaryOffer);
-      setConfirmedPayload(null);
+      setSubmittedOrder(null);
       setValidation({valid: true, errors: {}});
       setFormData({
         fullName: '',
@@ -73,14 +71,8 @@ export function ActionSheet({
     setValidation(result);
     if (!result.valid) return;
 
-    createAndSaveOrder(formData);
-    const payload = buildWhatsAppOrderPayload(formData);
-    setConfirmedPayload({
-      ...payload,
-      fullName: formData.fullName.trim(),
-      city: formData.city.trim(),
-      quantity: formData.quantity,
-    });
+    const savedOrder = createAndSaveOrder(formData);
+    setSubmittedOrder(savedOrder);
   };
 
   const adjustQuantity = (delta: number) => {
@@ -118,7 +110,7 @@ export function ActionSheet({
             </h2>
             <p className="text-xs text-neutral-600 mt-0.5 leading-relaxed">
               {showOrderForm
-                ? 'أكمل بياناتك ليتم تجهيز طلبك وإرساله مباشرة عبر واتساب'
+                ? 'أكمل بياناتك وسيتصل بك فريقنا لتأكيد الشحن والدفع عند الاستلام'
                 : section.summary}
             </p>
           </div>
@@ -133,38 +125,56 @@ export function ActionSheet({
         </div>
 
         <div className="p-5 space-y-4">
-          {confirmedPayload ? (
-            <div className="rounded-2xl bg-gradient-to-b from-[#ebfff3] to-white border border-[#00FF66]/65 p-5 text-center space-y-3.5 shadow-[0_8px_28px_rgba(0,255,102,0.15)]">
-              <div className="w-12 h-12 rounded-full bg-[#00FF66] text-[#0a0a0a] flex items-center justify-center mx-auto shadow-[0_0_20px_rgba(0,255,102,0.45)]">
-                <CheckCircle2 className="w-7 h-7" />
+          {submittedOrder ? (
+            <div
+              data-testid="order-success-screen"
+              className="rounded-2xl bg-gradient-to-b from-[#ebfff3] to-white border border-[#00FF66]/65 p-5 text-center space-y-3.5 shadow-[0_8px_28px_rgba(0,255,102,0.15)]"
+            >
+              <div className="w-14 h-14 rounded-full bg-[#00FF66] text-[#0a0a0a] flex items-center justify-center mx-auto shadow-[0_0_24px_rgba(0,255,102,0.5)]">
+                <CheckCircle2 className="w-8 h-8" />
               </div>
               <h3 className="text-lg font-extrabold text-[#065f46]">
-                طلبك جاهز للإرسال عبر الواتساب
+                🎉 تم استلام طلبك بنجاح!
               </h3>
               <p className="text-sm text-neutral-700 leading-relaxed">
-                شكراً {confirmedPayload.fullName}، اضغط على الزر أدناه لإرسال تفاصيل طلبك إلى فريق DAKHLA FIT وتأكيد التوصيل إلى {confirmedPayload.city}.
+                سيقوم فريقنا بالاتصال بك قريباً لتأكيد الشحن الدفع عند الاستلام.
               </p>
 
-              <div className="rounded-xl bg-white border border-[#00FF66]/45 p-3.5 text-start text-xs text-[#0a0a0a] space-y-1.5 whitespace-pre-line leading-relaxed">
-                {confirmedPayload.message}
+              <div className="rounded-xl bg-white border border-[#00FF66]/45 p-3.5 text-start text-xs text-[#0a0a0a] space-y-1.5 leading-relaxed">
+                <div className="flex items-center justify-between border-b border-neutral-100 pb-1.5">
+                  <span className="text-neutral-500">رقم الطلب:</span>
+                  <strong className="tabular-nums text-[#047857]">
+                    {submittedOrder.id}
+                  </strong>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-neutral-500">الاسم الكامل:</span>
+                  <strong>{submittedOrder.fullName}</strong>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-neutral-500">رقم الهاتف:</span>
+                  <strong dir="ltr" className="tabular-nums">
+                    {submittedOrder.phone}
+                  </strong>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-neutral-500">المدينة:</span>
+                  <strong>{submittedOrder.city}</strong>
+                </div>
+                <div className="flex items-center justify-between border-t border-neutral-100 pt-1.5">
+                  <span className="text-neutral-500">المجموع ({submittedOrder.quantity}×):</span>
+                  <strong className="tabular-nums text-[#047857]">
+                    {submittedOrder.totalPrice} درهم (الدفع عند الاستلام)
+                  </strong>
+                </div>
               </div>
-
-              <a
-                href={confirmedPayload.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-full min-h-[50px] rounded-xl bg-[#00FF66] hover:bg-[#1aff75] text-[#0a0a0a] font-extrabold text-base flex items-center justify-center gap-2 shadow-[0_6px_20px_rgba(0,255,102,0.35)] transition-colors"
-              >
-                <span>إرسال عبر واتساب الآن 🚀</span>
-                <ExternalLink className="w-4 h-4" />
-              </a>
 
               <button
                 type="button"
                 onClick={onClose}
-                className="w-full min-h-[44px] rounded-xl border border-neutral-300 text-[#0a0a0a] hover:bg-[#00FF66]/10 font-semibold text-sm transition-colors cursor-pointer"
+                className="w-full min-h-[48px] rounded-xl bg-[#00FF66] hover:bg-[#1aff75] text-[#0a0a0a] font-extrabold text-sm shadow-[0_6px_20px_rgba(0,255,102,0.3)] transition-colors cursor-pointer"
               >
-                العودة إلى الصفحة
+                العودة إلى المتجر
               </button>
             </div>
           ) : showOrderForm ? (
@@ -301,7 +311,7 @@ export function ActionSheet({
                 type="submit"
                 className="w-full min-h-[52px] rounded-xl bg-[#00FF66] hover:bg-[#1aff75] text-[#0a0a0a] font-extrabold text-base flex items-center justify-center gap-2 shadow-[0_6px_20px_rgba(0,255,102,0.35)] transition-colors cursor-pointer"
               >
-                <span>تأكيد الطلب الآن عبر الواتساب 🚀</span>
+                <span>تأكيد الطلب الآن (الدفع عند الاستلام) ✅</span>
               </button>
             </form>
           ) : (

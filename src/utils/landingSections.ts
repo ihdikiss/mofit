@@ -40,6 +40,8 @@ export const ORIGINAL_PRICE = 599;
 export const SALE_PRICE = 439;
 export const PACK_TITLE = 'DAKHLA FIT — باقة اللياقة البدنية المتكاملة';
 export const STORE_WHATSAPP_NUMBER = '212661000439';
+export const SITE_BASE_URL = 'https://morabitfit.vercel.app/';
+export const ADMIN_DASHBOARD_URL = 'https://morabitfit.vercel.app/#admin';
 
 export const LANDING_SECTIONS: LandingSection[] = [
   {
@@ -186,6 +188,7 @@ export function buildWhatsAppOrderPayload(input: OrderFormInput): WhatsAppPayloa
     `المدينة: ${input.city.trim()}`,
     `الكمية: ${qty}`,
     `المجموع: ${pricing.totalPrice} درهم (الدفع عند الاستلام بالمغرب)`,
+    `الرابط: ${SITE_BASE_URL}`,
   ].join('\n');
 
   const url = `https://wa.me/${STORE_WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`;

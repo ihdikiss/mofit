@@ -582,36 +582,27 @@ export function AdminDashboard({onExitAdmin}: AdminDashboardProps) {
                                 <span>{statusMeta.label}</span>
                               </span>
 
-                              <div className="flex items-center gap-1.5">
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    handleStatusChange(order.id, 'confirmed')
-                                  }
-                                  className={`min-h-[34px] px-2.5 py-1 rounded-lg text-xs font-bold border transition-colors cursor-pointer whitespace-nowrap inline-flex items-center gap-1.5 ${
-                                    order.status === 'confirmed'
-                                      ? 'bg-[#00FF66] text-[#0a0a0a] border-[#00FF66]'
-                                      : 'bg-white/5 text-white hover:bg-[#00FF66]/20 border-white/15'
-                                  }`}
-                                >
-                                  <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-                                  <span>تم التفعيل بعد الاتصال</span>
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    handleStatusChange(order.id, 'canceled')
-                                  }
-                                  className={`min-h-[34px] px-2.5 py-1 rounded-lg text-xs font-bold border transition-colors cursor-pointer whitespace-nowrap inline-flex items-center gap-1.5 ${
-                                    order.status === 'canceled'
-                                      ? 'bg-[#FF4444] text-white border-[#FF4444]'
-                                      : 'bg-white/5 text-white/85 hover:bg-[#FF4444]/20 border-white/15'
-                                  }`}
-                                >
-                                  <XCircle className="w-3.5 h-3.5 shrink-0" />
-                                  <span>ملغى / لم يرد</span>
-                                </button>
-                              </div>
+                              <select
+                                value={order.status}
+                                onChange={(e) =>
+                                  handleStatusChange(
+                                    order.id,
+                                    e.target.value as OrderStatus,
+                                  )
+                                }
+                                aria-label={`تغيير حالة طلب ${order.fullName}`}
+                                className="min-h-[38px] rounded-lg border border-white/20 bg-[#0a0a0a] px-2.5 text-xs font-bold text-white focus:outline-none focus:border-[#00FF66] cursor-pointer"
+                              >
+                                <option value="pending">
+                                  🟡 قيد الانتظار (Pending)
+                                </option>
+                                <option value="confirmed">
+                                  🟢 تم التفعيل بعد الاتصال (Confirmed)
+                                </option>
+                                <option value="canceled">
+                                  🔴 ملغى / لم يرد (Canceled)
+                                </option>
+                              </select>
                             </div>
                           </td>
                         </tr>
@@ -668,35 +659,28 @@ export function AdminDashboard({onExitAdmin}: AdminDashboardProps) {
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-2">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            handleStatusChange(order.id, 'confirmed')
+                      <div>
+                        <select
+                          value={order.status}
+                          onChange={(e) =>
+                            handleStatusChange(
+                              order.id,
+                              e.target.value as OrderStatus,
+                            )
                           }
-                          className={`min-h-[44px] px-2 rounded-xl text-xs font-bold border cursor-pointer transition-colors inline-flex items-center justify-center gap-1.5 ${
-                            order.status === 'confirmed'
-                              ? 'bg-[#00FF66] text-[#0a0a0a] border-[#00FF66]'
-                              : 'bg-white/5 text-white border-white/15'
-                          }`}
+                          aria-label={`تغيير حالة طلب ${order.fullName}`}
+                          className="w-full min-h-[44px] rounded-xl border border-white/20 bg-[#0a0a0a] px-3 text-xs font-bold text-white focus:outline-none focus:border-[#00FF66] cursor-pointer"
                         >
-                          <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-                          <span>تم التفعيل بعد الاتصال</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            handleStatusChange(order.id, 'canceled')
-                          }
-                          className={`min-h-[44px] px-2 rounded-xl text-xs font-bold border cursor-pointer transition-colors inline-flex items-center justify-center gap-1.5 ${
-                            order.status === 'canceled'
-                              ? 'bg-[#FF4444] text-white border-[#FF4444]'
-                              : 'bg-white/5 text-white border-white/15'
-                          }`}
-                        >
-                          <XCircle className="w-3.5 h-3.5 shrink-0" />
-                          <span>ملغى / لم يرد</span>
-                        </button>
+                          <option value="pending">
+                            🟡 قيد الانتظار (Pending)
+                          </option>
+                          <option value="confirmed">
+                            🟢 تم التفعيل بعد الاتصال (Confirmed)
+                          </option>
+                          <option value="canceled">
+                            🔴 ملغى / لم يرد (Canceled)
+                          </option>
+                        </select>
                       </div>
                     </div>
                   );
