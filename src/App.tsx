@@ -52,6 +52,13 @@ export default function App() {
     }
   };
 
+  const handleOpenAdmin = () => {
+    if (typeof window !== 'undefined') {
+      window.location.hash = '#admin';
+      setIsAdminRoute(true);
+    }
+  };
+
   if (isAdminRoute) {
     return <AdminDashboard onExitAdmin={handleExitAdmin} />;
   }
@@ -74,6 +81,13 @@ export default function App() {
           <span className="text-base font-extrabold tracking-tight text-[#0a0a0a] whitespace-nowrap shrink-0">
             DAKHLA FIT
           </span>
+          <button
+            type="button"
+            onClick={handleOpenAdmin}
+            className="min-h-[40px] px-2 text-xs font-semibold text-neutral-500 hover:text-[#0a0a0a] hover:underline whitespace-nowrap shrink-0 cursor-pointer transition-colors"
+          >
+            لوحة الأدمن
+          </button>
           <button
             type="button"
             onClick={openCheckoutDrawer}

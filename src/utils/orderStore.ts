@@ -81,6 +81,8 @@ export function loadOrders(
   }
 }
 
+export const ORDERS_SYNC_CHANNEL = 'dakhla_fit_orders_sync';
+
 export function saveOrders(
   orders: OrderRecord[],
   storage: StorageAdapter | null = getBrowserStorage(),
@@ -88,6 +90,11 @@ export function saveOrders(
   if (!storage) return;
   try {
     storage.setItem(ORDERS_STORAGE_KEY, JSON.stringify(orders));
+    if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+      const channel = new window.BroadcastChannel(ORDERS_SYNC_CHANNEL);
+      channel.postMessage({type: 'orders_updated'});
+      channel.close();
+    }
   } catch {
     // Ignore storage quota errors cleanly
   }

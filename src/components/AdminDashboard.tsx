@@ -12,6 +12,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import {
+  ORDERS_SYNC_CHANNEL,
   OrderRecord,
   OrderStatus,
   authenticateAdmin,
@@ -97,7 +98,15 @@ export function AdminDashboard({onExitAdmin}: AdminDashboardProps) {
       setOrders(loadOrders());
     };
     window.addEventListener('storage', handleStorageSync);
-    return () => window.removeEventListener('storage', handleStorageSync);
+    let channel: BroadcastChannel | null = null;
+    if ('BroadcastChannel' in window) {
+      channel = new window.BroadcastChannel(ORDERS_SYNC_CHANNEL);
+      channel.onmessage = () => setOrders(loadOrders());
+    }
+    return () => {
+      window.removeEventListener('storage', handleStorageSync);
+      channel?.close();
+    };
   }, [isAuthenticated]);
 
   const analytics = useMemo(() => computeOrderAnalytics(orders), [orders]);
