@@ -26,6 +26,7 @@ export function ActionSheet({
     fullName: '',
     phone: '',
     city: '',
+    address: '',
     quantity: 1,
   });
   const [validation, setValidation] = useState<OrderValidationResult>({
@@ -47,6 +48,7 @@ export function ActionSheet({
         fullName: '',
         phone: '',
         city: '',
+        address: '',
         quantity: 1,
       });
     }
@@ -169,6 +171,12 @@ export function ActionSheet({
                   <span className="text-neutral-500">المدينة:</span>
                   <strong>{submittedOrder.city}</strong>
                 </div>
+                {submittedOrder.address && (
+                  <div className="flex items-start justify-between gap-3">
+                    <span className="text-neutral-500 shrink-0">العنوان:</span>
+                    <strong className="text-end">{submittedOrder.address}</strong>
+                  </div>
+                )}
                 <div className="flex items-center justify-between border-t border-neutral-100 pt-1.5">
                   <span className="text-neutral-500">المجموع ({submittedOrder.quantity}×):</span>
                   <strong className="tabular-nums text-[#047857]">
@@ -306,6 +314,30 @@ export function ActionSheet({
                 {validation.errors.city && (
                   <p className="text-xs text-red-600 mt-1 font-medium" role="alert">
                     {validation.errors.city}
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <label
+                  htmlFor="order-address"
+                  className="block text-sm font-bold mb-1.5 text-[#0a0a0a]"
+                >
+                  العنوان الكامل (الحي / الشارع)
+                </label>
+                <input
+                  id="order-address"
+                  type="text"
+                  value={formData.address ?? ''}
+                  onChange={(e) =>
+                    setFormData((prev) => ({...prev, address: e.target.value}))
+                  }
+                  placeholder="مثال: حي السلام، شارع محمد الخامس رقم 14"
+                  className="w-full min-h-[48px] rounded-xl border border-neutral-300 bg-white px-3.5 text-base text-[#0a0a0a] placeholder:text-neutral-400 focus:outline-none focus:border-[#00FF66] focus:ring-2 focus:ring-[#00FF66]/30"
+                />
+                {validation.errors.address && (
+                  <p className="text-xs text-red-600 mt-1 font-medium" role="alert">
+                    {validation.errors.address}
                   </p>
                 )}
               </div>

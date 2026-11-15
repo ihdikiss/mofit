@@ -46,17 +46,20 @@ test('validateOrderForm and normalizeMoroccanPhone handle +212 and local formats
     fullName: '',
     phone: '123',
     city: '',
+    address: '',
     quantity: 1,
   });
   assert.equal(invalid.valid, false);
   assert.ok(invalid.errors.fullName);
   assert.ok(invalid.errors.phone);
   assert.ok(invalid.errors.city);
+  assert.ok(invalid.errors.address);
 
   const validNineDigits = validateOrderForm({
     fullName: 'يوسف العلوي',
     phone: '612345678',
     city: 'الرباط',
+    address: 'حي أكدال، شارع فرنسا رقم 12',
     quantity: 1,
   });
   assert.equal(validNineDigits.valid, true);
@@ -68,6 +71,7 @@ test('buildWhatsAppOrderPayload constructs dynamic encoded wa.me URL with pack a
     fullName: 'سلمى بنعلي',
     phone: '0652841037',
     city: 'مراكش',
+    address: 'حي جليز، زنقة الحسن الثاني',
     quantity: 2,
   });
 
@@ -77,6 +81,7 @@ test('buildWhatsAppOrderPayload constructs dynamic encoded wa.me URL with pack a
   assert.ok(payload.message.includes('سلمى بنعلي'));
   assert.ok(payload.message.includes('+212652841037'));
   assert.ok(payload.message.includes('مراكش'));
+  assert.ok(payload.message.includes('حي جليز، زنقة الحسن الثاني'));
   assert.ok(payload.message.includes('878'));
   assert.ok(payload.message.includes('DAKHLA FIT'));
   assert.ok(payload.message.includes('https://morabitfit.vercel.app/'));

@@ -7,6 +7,7 @@ create table if not exists public.orders (
   full_name text not null,
   phone text not null,
   city text not null,
+  address text not null default '',
   pack_name text not null,
   quantity integer not null default 1 check (quantity >= 1 and quantity <= 10),
   total_price integer not null check (total_price >= 0),
@@ -15,6 +16,9 @@ create table if not exists public.orders (
   source_url text,
   created_at timestamptz not null default now()
 );
+
+alter table public.orders
+  add column if not exists address text not null default '';
 
 create index if not exists orders_created_at_idx
   on public.orders (created_at desc);

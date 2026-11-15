@@ -13,6 +13,7 @@ export interface OrderFormInput {
   fullName: string;
   phone: string;
   city: string;
+  address?: string;
   quantity: number;
 }
 
@@ -148,6 +149,7 @@ export function validateOrderForm(input: OrderFormInput): OrderValidationResult 
   const trimmedName = input.fullName.trim();
   const digits = input.phone.replace(/[^\d]/g, '');
   const trimmedCity = input.city.trim();
+  const trimmedAddress = (input.address ?? '').trim();
 
   if (trimmedName.length < 2) {
     errors.fullName = 'يرجى إدخال الاسم الكامل';
@@ -166,6 +168,10 @@ export function validateOrderForm(input: OrderFormInput): OrderValidationResult 
     errors.city = 'يرجى إدخال المدينة';
   }
 
+  if (trimmedAddress.length < 3) {
+    errors.address = 'يرجى إدخال العنوان الكامل للتوصيل';
+  }
+
   if (!Number.isInteger(input.quantity) || input.quantity < 1 || input.quantity > 10) {
     errors.quantity = 'يرجى اختيار كمية بين 1 و 10';
   }
@@ -180,16 +186,23 @@ export function buildWhatsAppOrderPayload(input: OrderFormInput): WhatsAppPayloa
   const pricing = calculatePriceSummary(input.quantity);
   const normalizedPhone = normalizeMoroccanPhone(input.phone);
   const qty = Math.min(10, Math.max(1, Math.floor(input.quantity || 1)));
+  const trimmedAddress = (input.address ?? '').trim();
 
-  const message = [
+  const lines = [
     `طلب جديد من ${PACK_TITLE}`,
     `الاسم الكامل: ${input.fullName.trim()}`,
     `رقم الهاتف: ${normalizedPhone}`,
     `المدينة: ${input.city.trim()}`,
+  ];
+  if (trimmedAddress) {
+    lines.push(`العنوان: ${trimmedAddress}`);
+  }
+  lines.push(
     `الكمية: ${qty}`,
     `المجموع: ${pricing.totalPrice} درهم (الدفع عند الاستلام بالمغرب)`,
     `الرابط: ${SITE_BASE_URL}`,
-  ].join('\n');
+  );
+  const message = lines.join('\n');
 
   const url = `https://wa.me/${STORE_WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`;
 

@@ -5,6 +5,7 @@ import {
   Clock,
   Lock,
   LogOut,
+  MapPin,
   MessageCircle,
   Phone,
   RefreshCw,
@@ -516,8 +517,8 @@ export function AdminDashboard({onExitAdmin}: AdminDashboardProps) {
                   type="search"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="ابحث برقم الهاتف أو المدينة..."
-                  aria-label="البحث برقم الهاتف أو المدينة"
+                  placeholder="ابحث بالهاتف أو المدينة أو العنوان..."
+                  aria-label="البحث برقم الهاتف أو المدينة أو العنوان"
                   className="w-full min-h-[44px] rounded-xl border border-white/15 bg-[#0a0a0a] pr-10 pl-3.5 text-sm text-white placeholder:text-white/40 focus:outline-none focus:border-[#00FF66]"
                 />
               </div>
@@ -591,7 +592,7 @@ export function AdminDashboard({onExitAdmin}: AdminDashboardProps) {
                     <tr className="border-b border-white/10 text-xs text-white/60 bg-white/[0.02]">
                       <th className="py-3 px-4 font-bold">الاسم الكامل</th>
                       <th className="py-3 px-4 font-bold">رقم الهاتف</th>
-                      <th className="py-3 px-4 font-bold">المدينة</th>
+                      <th className="py-3 px-4 font-bold">المدينة والعنوان</th>
                       <th className="py-3 px-4 font-bold">الباقة المطلوبة</th>
                       <th className="py-3 px-4 font-bold">التوقيت</th>
                       <th className="py-3 px-4 font-bold">التحقق بعد الاتصال</th>
@@ -634,8 +635,16 @@ export function AdminDashboard({onExitAdmin}: AdminDashboardProps) {
                               </a>
                             </div>
                           </td>
-                          <td className="py-3.5 px-4 align-middle text-white/90 font-semibold">
-                            {order.city}
+                          <td className="py-3.5 px-4 align-middle max-w-[260px]">
+                            <div className="text-white/95 font-bold">
+                              {order.city}
+                            </div>
+                            <div className="text-xs text-white/70 mt-0.5 flex items-start gap-1 leading-relaxed">
+                              <MapPin className="w-3.5 h-3.5 text-[#00FF66] shrink-0 mt-0.5" />
+                              <span>
+                                {order.address || 'العنوان غير محدد'}
+                              </span>
+                            </div>
                           </td>
                           <td className="py-3.5 px-4 align-middle">
                             <div className="text-white/90 font-semibold">
@@ -735,8 +744,18 @@ export function AdminDashboard({onExitAdmin}: AdminDashboardProps) {
                           </a>
                         </div>
                         <div className="text-white/85 font-semibold tabular-nums">
-                          {order.city} · {order.quantity}× ({order.totalPrice}{' '}
-                          درهم)
+                          {order.quantity}× ({order.totalPrice} درهم)
+                        </div>
+                      </div>
+
+                      <div className="flex items-start gap-1.5 text-xs text-white/80 bg-white/[0.03] border border-white/10 rounded-lg px-2.5 py-2 leading-relaxed">
+                        <MapPin className="w-3.5 h-3.5 text-[#00FF66] shrink-0 mt-0.5" />
+                        <div>
+                          <span className="font-bold text-white">{order.city}</span>
+                          <span className="text-white/75">
+                            {' '}
+                            — {order.address || 'العنوان غير محدد'}
+                          </span>
                         </div>
                       </div>
 

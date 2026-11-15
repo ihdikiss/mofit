@@ -112,7 +112,7 @@ test('filterOrders supports status tabs and phone/city search', () => {
     new Date('2026-11-14T09:00:00.000Z'),
   );
   const o2 = createAndSaveOrder(
-    {fullName: 'سلمى بنعلي', phone: '0652841037', city: 'الداخلة', quantity: 1},
+    {fullName: 'سلمى بنعلي', phone: '0652841037', city: 'الداخلة', address: 'حي الوحدة رقم 20', quantity: 1},
     storage,
     new Date('2026-11-14T10:00:00.000Z'),
   );
@@ -123,6 +123,7 @@ test('filterOrders supports status tabs and phone/city search', () => {
   assert.equal(filterOrders(all, 'pending', '').length, 1);
   assert.equal(filterOrders(all, 'all', '065284').length, 1);
   assert.equal(filterOrders(all, 'all', 'تطوان').length, 1);
+  assert.equal(filterOrders(all, 'all', 'الوحدة').length, 1);
   assert.ok(buildFollowUpWhatsAppUrl(o1).startsWith('https://wa.me/212764219385?text='));
 });
 
@@ -144,13 +145,20 @@ test('normalizeSupabaseUrl strips /rest/v1 suffix and row mappers round-trip acc
 
   const storage = createMemoryStorage();
   const sample = createAndSaveOrder(
-    {fullName: 'كريم المرابط', phone: '612345678', city: 'الداخلة', quantity: 2},
+    {fullName: 'كريم المرابط', phone: '612345678', city: 'الداخلة', address: 'حي المسيرة زنقة 4', quantity: 2},
     storage,
     new Date('2026-11-15T12:00:00.000Z'),
   );
   const row = toSupabaseOrderRow(sample);
   const restored = fromSupabaseOrderRow(row);
   assert.deepEqual(restored, sample);
+
+  // Fallback extraction from whatsapp_url when remote row lacks address column
+  const restoredFromWhatsappOnly = fromSupabaseOrderRow({
+    ...row,
+    address: null,
+  });
+  assert.equal(restoredFromWhatsappOnly.address, 'حي المسيرة زنقة 4');
 });
 
 test('submitOrderToStore, fetchOrdersFromStore, and updateOrderStatusInStore sync cleanly with Supabase and recover pending local orders', async () => {

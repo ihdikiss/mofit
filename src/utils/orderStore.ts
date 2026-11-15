@@ -27,6 +27,7 @@ export interface OrderRecord {
   fullName: string;
   phone: string;
   city: string;
+  address: string;
   packName: string;
   quantity: number;
   totalPrice: number;
@@ -41,6 +42,7 @@ export interface SupabaseOrderRow {
   full_name: string;
   phone: string;
   city: string;
+  address?: string | null;
   pack_name: string;
   quantity: number;
   total_price: number;
@@ -126,12 +128,36 @@ export function isSupabaseSchemaMissingError(
   );
 }
 
+export function extractAddressFromWhatsAppUrl(whatsappUrl?: string | null): string {
+  if (!whatsappUrl) return '';
+  try {
+    const parsed = new URL(whatsappUrl);
+    const textParam = parsed.searchParams.get('text');
+    if (!textParam) return '';
+    const match = textParam.match(/^العنوان:\s*(.+)$/m);
+    return match?.[1]?.trim() ?? '';
+  } catch {
+    return '';
+  }
+}
+
+export function isAddressColumnMissingError(
+  error: RemoteDbError | null | undefined,
+): boolean {
+  if (!error) return false;
+  return (
+    (error.code === 'PGRST204' || error.code === '42703') &&
+    /address/i.test(error.message)
+  );
+}
+
 export function toSupabaseOrderRow(order: OrderRecord): SupabaseOrderRow {
   return {
     id: order.id,
     full_name: order.fullName,
     phone: order.phone,
     city: order.city,
+    address: order.address,
     pack_name: order.packName,
     quantity: order.quantity,
     total_price: order.totalPrice,
@@ -147,11 +173,16 @@ export function fromSupabaseOrderRow(row: SupabaseOrderRow): OrderRecord {
     row.status === 'confirmed' || row.status === 'canceled'
       ? row.status
       : 'pending';
+  const resolvedAddress =
+    typeof row.address === 'string' && row.address.trim().length > 0
+      ? row.address.trim()
+      : extractAddressFromWhatsAppUrl(row.whatsapp_url);
   return {
     id: row.id,
     fullName: row.full_name,
     phone: row.phone,
     city: row.city,
+    address: resolvedAddress,
     packName: row.pack_name || PACK_TITLE,
     quantity: Number(row.quantity) || 1,
     totalPrice: Number(row.total_price) || 0,
@@ -169,6 +200,15 @@ export function createSupabaseOrdersAdapter(
   return {
     insertOrder: async (row) => {
       const {error} = await client.from('orders').insert(row);
+      if (error && isAddressColumnMissingError({code: error.code, message: error.message})) {
+        const {address: _omit, ...rowWithoutAddress} = row;
+        const retry = await client.from('orders').insert(rowWithoutAddress);
+        return {
+          error: retry.error
+            ? {code: retry.error.code, message: retry.error.message}
+            : null,
+        };
+      }
       return {
         error: error ? {code: error.code, message: error.message} : null,
       };
@@ -177,6 +217,17 @@ export function createSupabaseOrdersAdapter(
       const {error} = await client
         .from('orders')
         .upsert(row, {onConflict: 'id'});
+      if (error && isAddressColumnMissingError({code: error.code, message: error.message})) {
+        const {address: _omit, ...rowWithoutAddress} = row;
+        const retry = await client
+          .from('orders')
+          .upsert(rowWithoutAddress, {onConflict: 'id'});
+        return {
+          error: retry.error
+            ? {code: retry.error.code, message: retry.error.message}
+            : null,
+        };
+      }
       return {
         error: error ? {code: error.code, message: error.message} : null,
       };
@@ -242,9 +293,28 @@ export function loadOrders(
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
-    return (parsed as OrderRecord[]).sort(
-      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-    );
+    return (parsed as Partial<OrderRecord>[])
+      .map((item) => ({
+        id: item.id ?? '',
+        fullName: item.fullName ?? '',
+        phone: item.phone ?? '',
+        city: item.city ?? '',
+        address:
+          item.address ?? extractAddressFromWhatsAppUrl(item.whatsappUrl) ?? '',
+        packName: item.packName ?? PACK_TITLE,
+        quantity: Number(item.quantity) || 1,
+        totalPrice: Number(item.totalPrice) || 0,
+        status:
+          item.status === 'confirmed' || item.status === 'canceled'
+            ? item.status
+            : ('pending' as OrderStatus),
+        createdAt: item.createdAt ?? '',
+        whatsappUrl: item.whatsappUrl ?? '',
+        sourceUrl: item.sourceUrl ?? SITE_BASE_URL,
+      }))
+      .sort(
+        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+      );
   } catch {
     return [];
   }
@@ -281,6 +351,7 @@ export function createAndSaveOrder(
     fullName: input.fullName.trim(),
     phone: payload.normalizedPhone,
     city: input.city.trim(),
+    address: (input.address ?? '').trim(),
     packName: PACK_TITLE,
     quantity: qty,
     totalPrice: payload.totalPrice,
@@ -534,6 +605,7 @@ export function filterOrders(
     if (!normalizedQuery) return true;
 
     const cityMatch = order.city.toLowerCase().includes(normalizedQuery);
+    const addressMatch = order.address.toLowerCase().includes(normalizedQuery);
     const nameMatch = order.fullName.toLowerCase().includes(normalizedQuery);
     const idMatch = order.id.toLowerCase().includes(normalizedQuery);
     const orderDigits = order.phone.replace(/[^\d]/g, '');
@@ -542,7 +614,7 @@ export function filterOrders(
       (digitsQuery.length > 0 && orderDigits.includes(digitsQuery)) ||
       (localDigitsQuery.length > 0 && orderDigits.includes(localDigitsQuery));
 
-    return cityMatch || nameMatch || idMatch || phoneMatch;
+    return cityMatch || addressMatch || nameMatch || idMatch || phoneMatch;
   });
 }
 
@@ -584,6 +656,7 @@ export function setAdminSession(
 
 export function buildFollowUpWhatsAppUrl(order: OrderRecord): string {
   const phoneDigits = order.phone.replace(/[^\d]/g, '');
-  const message = `مرحباً ${order.fullName}، نتواصل معك من فريق DAKHLA FIT بخصوص طلبك (${order.id}) لباقة اللياقة إلى مدينة ${order.city}.`;
+  const addressPart = order.address ? ` (${order.address})` : '';
+  const message = `مرحباً ${order.fullName}، نتواصل معك من فريق DAKHLA FIT بخصوص طلبك (${order.id}) لباقة اللياقة إلى مدينة ${order.city}${addressPart}.`;
   return `https://wa.me/${phoneDigits}?text=${encodeURIComponent(message)}`;
 }
