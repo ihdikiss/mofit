@@ -7,6 +7,7 @@ import {
   LogOut,
   MessageCircle,
   Phone,
+  RefreshCw,
   Search,
   Store,
   XCircle,
@@ -18,11 +19,13 @@ import {
   authenticateAdmin,
   buildFollowUpWhatsAppUrl,
   computeOrderAnalytics,
+  fetchOrdersFromStore,
   filterOrders,
   getAdminSession,
   loadOrders,
   setAdminSession,
-  updateOrderStatus,
+  subscribeToSupabaseOrders,
+  updateOrderStatusInStore,
 } from '../utils/orderStore';
 
 interface AdminDashboardProps {
@@ -81,31 +84,56 @@ export function AdminDashboard({onExitAdmin}: AdminDashboardProps) {
   const [authError, setAuthError] = useState('');
 
   const [orders, setOrders] = useState<OrderRecord[]>([]);
+  const [isLoadingOrders, setIsLoadingOrders] = useState(false);
+  const [schemaSetupRequired, setSchemaSetupRequired] = useState(false);
   const [statusFilter, setStatusFilter] = useState<'all' | OrderStatus>('all');
   const [searchQuery, setSearchQuery] = useState('');
 
   const chartCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const chartInstanceRef = useRef<Chart | null>(null);
 
+  const refreshOrders = async (showSpinner = false) => {
+    if (showSpinner) setIsLoadingOrders(true);
+    try {
+      const result = await fetchOrdersFromStore();
+      setOrders(result.orders);
+      setSchemaSetupRequired(result.schemaMissing);
+    } finally {
+      if (showSpinner) setIsLoadingOrders(false);
+    }
+  };
+
   useEffect(() => {
     if (!isAuthenticated) {
       setOrders([]);
+      setSchemaSetupRequired(false);
       return;
     }
+
     setOrders(loadOrders());
+    void refreshOrders(true);
 
     const handleStorageSync = () => {
       setOrders(loadOrders());
     };
     window.addEventListener('storage', handleStorageSync);
+
     let channel: BroadcastChannel | null = null;
     if ('BroadcastChannel' in window) {
       channel = new window.BroadcastChannel(ORDERS_SYNC_CHANNEL);
-      channel.onmessage = () => setOrders(loadOrders());
+      channel.onmessage = () => {
+        setOrders(loadOrders());
+      };
     }
+
+    const unsubscribeRealtime = subscribeToSupabaseOrders(() => {
+      void refreshOrders(false);
+    });
+
     return () => {
       window.removeEventListener('storage', handleStorageSync);
       channel?.close();
+      unsubscribeRealtime();
     };
   }, [isAuthenticated]);
 
@@ -196,9 +224,20 @@ export function AdminDashboard({onExitAdmin}: AdminDashboardProps) {
     setAuthError('');
   };
 
-  const handleStatusChange = (orderId: string, nextStatus: OrderStatus) => {
-    const updated = updateOrderStatus(orderId, nextStatus);
-    setOrders(updated);
+  const handleStatusChange = async (
+    orderId: string,
+    nextStatus: OrderStatus,
+  ) => {
+    setOrders((prev) =>
+      prev.map((order) =>
+        order.id === orderId ? {...order, status: nextStatus} : order,
+      ),
+    );
+    const result = await updateOrderStatusInStore(orderId, nextStatus);
+    setOrders(result.orders);
+    if (result.schemaMissing) {
+      setSchemaSetupRequired(true);
+    }
   };
 
   if (!isAuthenticated) {
@@ -470,18 +509,51 @@ export function AdminDashboard({onExitAdmin}: AdminDashboardProps) {
               })}
             </div>
 
-            <div className="relative w-full md:w-80">
-              <Search className="w-4 h-4 text-white/45 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-              <input
-                type="search"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="ابحث برقم الهاتف أو المدينة..."
-                aria-label="البحث برقم الهاتف أو المدينة"
-                className="w-full min-h-[44px] rounded-xl border border-white/15 bg-[#0a0a0a] pr-10 pl-3.5 text-sm text-white placeholder:text-white/40 focus:outline-none focus:border-[#00FF66]"
-              />
+            <div className="flex items-center gap-2 w-full md:w-auto">
+              <div className="relative flex-1 md:w-80">
+                <Search className="w-4 h-4 text-white/45 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <input
+                  type="search"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="ابحث برقم الهاتف أو المدينة..."
+                  aria-label="البحث برقم الهاتف أو المدينة"
+                  className="w-full min-h-[44px] rounded-xl border border-white/15 bg-[#0a0a0a] pr-10 pl-3.5 text-sm text-white placeholder:text-white/40 focus:outline-none focus:border-[#00FF66]"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => void refreshOrders(true)}
+                disabled={isLoadingOrders}
+                aria-label="تحديث قائمة الطلبات"
+                className="min-h-[44px] px-3 rounded-xl border border-white/15 bg-[#0a0a0a] hover:bg-white/10 text-xs font-bold text-white flex items-center gap-1.5 shrink-0 cursor-pointer disabled:opacity-60 transition-colors"
+              >
+                <RefreshCw
+                  className={`w-4 h-4 text-[#00FF66] ${
+                    isLoadingOrders ? 'animate-spin' : ''
+                  }`}
+                />
+                <span>تحديث</span>
+              </button>
             </div>
           </div>
+
+          {schemaSetupRequired && (
+            <div
+              role="alert"
+              className="mx-4 sm:mx-5 mt-4 rounded-xl border border-amber-400/40 bg-amber-400/10 p-3.5 text-xs text-amber-200 leading-relaxed"
+            >
+              <strong>تنبيه إعداد Supabase:</strong> جدول{' '}
+              <code dir="ltr" className="text-white font-bold">
+                public.orders
+              </code>{' '}
+              غير منشأ بعد في مشروعك. نفّذ ملف{' '}
+              <code dir="ltr" className="text-white font-bold">
+                supabase/schema.sql
+              </code>{' '}
+              في Supabase SQL Editor لتفعيل المزامنة السحابية الفورية (الطلبات المحلية محفوظة ومُحمّلة أدناه).
+            </div>
+          )}
 
           {filteredOrders.length === 0 ? (
             <div className="p-10 text-center space-y-3">

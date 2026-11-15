@@ -3,14 +3,22 @@ import assert from 'node:assert/strict';
 import {
   ADMIN_DEMO_EMAIL,
   ADMIN_DEMO_PASSWORD,
+  OrdersRemoteAdapter,
+  SupabaseOrderRow,
   authenticateAdmin,
   buildFollowUpWhatsAppUrl,
   computeOrderAnalytics,
   createAndSaveOrder,
+  fetchOrdersFromStore,
   filterOrders,
+  fromSupabaseOrderRow,
   loadOrders,
+  submitOrderToStore,
+  toSupabaseOrderRow,
   updateOrderStatus,
+  updateOrderStatusInStore,
 } from './orderStore';
+import {normalizeSupabaseUrl} from './supabaseClient';
 
 function createMemoryStorage() {
   const data = new Map<string, string>();
@@ -21,6 +29,45 @@ function createMemoryStorage() {
     },
     removeItem: (key: string) => {
       data.delete(key);
+    },
+  };
+}
+
+function createFakeSupabaseAdapter(initialTableReady = true): {
+  adapter: OrdersRemoteAdapter;
+  setTableReady: (ready: boolean) => void;
+  rows: Map<string, SupabaseOrderRow>;
+} {
+  let tableReady = initialTableReady;
+  const rows = new Map<string, SupabaseOrderRow>();
+  const missingTableError = {
+    code: 'PGRST205',
+    message: "Could not find the table 'public.orders' in the schema cache",
+  };
+
+  return {
+    setTableReady: (ready) => {
+      tableReady = ready;
+    },
+    rows,
+    adapter: {
+      insertOrder: async (row) => {
+        if (!tableReady) return {error: missingTableError};
+        rows.set(row.id, row);
+        return {error: null};
+      },
+      upsertOrder: async (row) => {
+        if (!tableReady) return {error: missingTableError};
+        rows.set(row.id, row);
+        return {error: null};
+      },
+      selectOrders: async () => {
+        if (!tableReady) return {data: null, error: missingTableError};
+        return {
+          data: Array.from(rows.values()),
+          error: null,
+        };
+      },
     },
   };
 }
@@ -83,4 +130,72 @@ test('authenticateAdmin validates default demo email and password', () => {
   assert.equal(authenticateAdmin(ADMIN_DEMO_EMAIL, ADMIN_DEMO_PASSWORD), true);
   assert.equal(authenticateAdmin('wrong@dakhlafit.ma', ADMIN_DEMO_PASSWORD), false);
   assert.equal(authenticateAdmin(ADMIN_DEMO_EMAIL, 'wrong'), false);
+});
+
+test('normalizeSupabaseUrl strips /rest/v1 suffix and row mappers round-trip accurately', () => {
+  assert.equal(
+    normalizeSupabaseUrl('https://raaompkdkyghhyuxfnen.supabase.co/rest/v1/'),
+    'https://raaompkdkyghhyuxfnen.supabase.co',
+  );
+  assert.equal(
+    normalizeSupabaseUrl('https://raaompkdkyghhyuxfnen.supabase.co'),
+    'https://raaompkdkyghhyuxfnen.supabase.co',
+  );
+
+  const storage = createMemoryStorage();
+  const sample = createAndSaveOrder(
+    {fullName: 'كريم المرابط', phone: '612345678', city: 'الداخلة', quantity: 2},
+    storage,
+    new Date('2026-11-15T12:00:00.000Z'),
+  );
+  const row = toSupabaseOrderRow(sample);
+  const restored = fromSupabaseOrderRow(row);
+  assert.deepEqual(restored, sample);
+});
+
+test('submitOrderToStore, fetchOrdersFromStore, and updateOrderStatusInStore sync cleanly with Supabase and recover pending local orders', async () => {
+  const storage = createMemoryStorage();
+  const fake = createFakeSupabaseAdapter(false);
+
+  // 1. Submit while schema is missing: saves locally, flags schemaMissing
+  const offlineSubmit = await submitOrderToStore(
+    {fullName: 'سعيد بوزيد', phone: '0611223344', city: 'أكادير', quantity: 1},
+    storage,
+    new Date('2026-11-15T10:00:00.000Z'),
+    fake.adapter,
+  );
+  assert.equal(offlineSubmit.syncedToSupabase, false);
+  assert.equal(offlineSubmit.schemaMissing, true);
+
+  const preSchemaFetch = await fetchOrdersFromStore(storage, fake.adapter);
+  assert.equal(preSchemaFetch.source, 'local');
+  assert.equal(preSchemaFetch.schemaMissing, true);
+  assert.equal(preSchemaFetch.orders.length, 1);
+
+  // 2. Now table is created: fetch flushes pending order automatically & pulls from Supabase
+  fake.setTableReady(true);
+  const postSchemaFetch = await fetchOrdersFromStore(storage, fake.adapter);
+  assert.equal(postSchemaFetch.source, 'supabase');
+  assert.equal(postSchemaFetch.schemaMissing, false);
+  assert.equal(postSchemaFetch.orders.length, 1);
+  assert.equal(fake.rows.size, 1);
+
+  // 3. Submit another order directly to Supabase and update status
+  const onlineSubmit = await submitOrderToStore(
+    {fullName: 'ندى التازي', phone: '0699887766', city: 'فاس', quantity: 2},
+    storage,
+    new Date('2026-11-15T11:00:00.000Z'),
+    fake.adapter,
+  );
+  assert.equal(onlineSubmit.syncedToSupabase, true);
+  assert.equal(fake.rows.size, 2);
+
+  const statusUpdate = await updateOrderStatusInStore(
+    onlineSubmit.order.id,
+    'confirmed',
+    storage,
+    fake.adapter,
+  );
+  assert.equal(statusUpdate.syncedToSupabase, true);
+  assert.equal(fake.rows.get(onlineSubmit.order.id)?.status, 'confirmed');
 });

@@ -1,5 +1,5 @@
 import React, {useState, useEffect} from 'react';
-import {X, CheckCircle2, Minus, Plus, ShieldCheck} from 'lucide-react';
+import {X, CheckCircle2, Minus, Plus, ShieldCheck, Loader2} from 'lucide-react';
 import {
   LandingSection,
   OrderFormInput,
@@ -8,7 +8,7 @@ import {
   calculatePriceSummary,
   validateOrderForm,
 } from '../utils/landingSections';
-import {OrderRecord, createAndSaveOrder} from '../utils/orderStore';
+import {OrderRecord, submitOrderToStore} from '../utils/orderStore';
 
 interface ActionSheetProps {
   section: LandingSection | null;
@@ -35,11 +35,13 @@ export function ActionSheet({
   const [submittedOrder, setSubmittedOrder] = useState<OrderRecord | null>(
     null,
   );
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (section) {
       setShowOrderForm(section.isPrimaryOffer);
       setSubmittedOrder(null);
+      setIsSubmitting(false);
       setValidation({valid: true, errors: {}});
       setFormData({
         fullName: '',
@@ -65,14 +67,20 @@ export function ActionSheet({
 
   const priceSummary = calculatePriceSummary(formData.quantity);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
     const result = validateOrderForm(formData);
     setValidation(result);
     if (!result.valid) return;
 
-    const savedOrder = createAndSaveOrder(formData);
-    setSubmittedOrder(savedOrder);
+    setIsSubmitting(true);
+    try {
+      const saved = await submitOrderToStore(formData);
+      setSubmittedOrder(saved.order);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const adjustQuantity = (delta: number) => {
@@ -309,9 +317,17 @@ export function ActionSheet({
 
               <button
                 type="submit"
-                className="w-full min-h-[52px] rounded-xl bg-[#00FF66] hover:bg-[#1aff75] text-[#0a0a0a] font-extrabold text-base flex items-center justify-center gap-2 shadow-[0_6px_20px_rgba(0,255,102,0.35)] transition-colors cursor-pointer"
+                disabled={isSubmitting}
+                className="w-full min-h-[52px] rounded-xl bg-[#00FF66] hover:bg-[#1aff75] disabled:opacity-70 text-[#0a0a0a] font-extrabold text-base flex items-center justify-center gap-2 shadow-[0_6px_20px_rgba(0,255,102,0.35)] transition-colors cursor-pointer disabled:cursor-not-allowed"
               >
-                <span>تأكيد الطلب الآن (الدفع عند الاستلام) ✅</span>
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    <span>جاري تسجيل الطلب...</span>
+                  </>
+                ) : (
+                  <span>تأكيد الطلب الآن (الدفع عند الاستلام) ✅</span>
+                )}
               </button>
             </form>
           ) : (
